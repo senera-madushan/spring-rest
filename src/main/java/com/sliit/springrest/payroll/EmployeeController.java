@@ -2,9 +2,15 @@ package com.sliit.springrest.payroll;
 
 import com.sliit.springrest.ExceptionHandling.EmployeeNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.hateoas.CollectionModel;
+import org.springframework.hateoas.EntityModel;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
+
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 
 @RestController
 public class EmployeeController {
@@ -13,17 +19,29 @@ public class EmployeeController {
     private EmployeeRepository employeeRepository;
 
     @GetMapping("api/employees")
-    List<Employee> getAllEmployee(){
-        return employeeRepository.findAll();
+    CollectionModel<EntityModel<Employee>> getAllEmployee(){
+
+        List<EntityModel<Employee>> allemployees = employeeRepository.findAll().stream().map(employee ->
+            new EntityModel<Employee>(employee, linkTo(methodOn(EmployeeController.class).getEmployeeById(employee.getId())).withSelfRel(),
+                    linkTo(methodOn(EmployeeController.class).getAllEmployee()).withRel("employees")
+            )).collect(Collectors.toList());
+
+        return new CollectionModel<>(allemployees,linkTo(methodOn(EmployeeController.class).getAllEmployee()).withSelfRel());
+
+
     }
     @PostMapping("api/employees")
     Employee saveEmployee(@RequestBody Employee newEmployee){
         return employeeRepository.save(newEmployee);
     }
     @GetMapping("api/employees/{id}")
-    Employee getEmployeeById(@PathVariable Long id){
-        return employeeRepository.findById(id)
-                .orElseThrow( () -> new EmployeeNotFoundException(id));
+    EntityModel<Employee> getEmployeeById(@PathVariable Long id){
+        Employee employee=employeeRepository.findById(id)
+                .orElseThrow(()->new EmployeeNotFoundException(id));
+
+        return new EntityModel<Employee>(employee,linkTo(methodOn(EmployeeController.class).getEmployeeById(id)).withSelfRel(),
+                linkTo(methodOn(EmployeeController.class).getAllEmployee()).withRel("employees")
+        );
     }
 
     @PutMapping("api/employees/{id}")
@@ -41,7 +59,8 @@ public class EmployeeController {
     }
     @DeleteMapping("api/employees/{id}")
     void deleteEmployee(@PathVariable Long id){
-        employeeRepository.deleteById(id);
+       employeeRepository.deleteById(id);
+
     }
 
 
